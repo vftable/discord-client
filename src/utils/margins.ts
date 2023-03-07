@@ -18,10 +18,10 @@
 
 let styleStr = "";
 
-export const Margins: Record<`${"top" | "bottom" | "left" | "right"}${8 | 16 | 20}`, string> = {} as any;
+export const Margins: Record<`${"top" | "bottom" | "left" | "right"}${8 | 16 | 20 | 24 | 32}`, string> = {} as any;
 
 for (const dir of ["top", "bottom", "left", "right"] as const) {
-    for (const size of [8, 16, 20] as const) {
+    for (const size of [8, 16, 20, 24, 32] as const) {
         const cl = `vc-m-${dir}-${size}`;
         Margins[`${dir}${size}`] = cl;
         styleStr += `.${cl}{margin-${dir}:${size}px;}`;
