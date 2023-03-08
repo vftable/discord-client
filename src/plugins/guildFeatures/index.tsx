@@ -19,7 +19,7 @@
 import { LazyComponent } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import { SettingsRouter } from "@webpack/common";
-import { User } from "discord-types/general";
+import { Guild, User } from "discord-types/general";
 
 const GuildFeaturesComponent = LazyComponent(() => require("../../components/GuildFeatures").default);
 const UserFlagsComponent = LazyComponent(() => require("../../components/UserFlags").default);
@@ -272,7 +272,7 @@ export default definePlugin({
 
         Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser = function () {
             // eslint-disable-next-line prefer-const
-            let ret = getCurrentUserDefault() || {};
+            let ret: User = getCurrentUserDefault() || {};
 
             const flagNames = [...Object.keys(Vencord.Settings.plugins.GuildFeatures).filter((feature: string) => {
                 return (feature !== "enabled") && (feature.includes("_USER")) && (Object.values(Vencord.Settings.plugins.GuildFeatures)[Object.keys(Vencord.Settings.plugins.GuildFeatures).indexOf(feature)]);
@@ -287,8 +287,6 @@ export default definePlugin({
             // eslint-disable-next-line prefer-const
             let ret = getUserProfileDefault(e) || {};
 
-            console.log(".1");
-
             if ((getCurrentUserDefault() as User).id === e) {
                 ret.themeColors = ret.themeColors || themeColors;
                 ret.pronouns = ret.pronouns || pronouns;
@@ -300,86 +298,12 @@ export default definePlugin({
                 ret.premiumType = 2;
             }
 
-            console.log(ret);
-
             return ret;
         };
 
         Vencord.Webpack.findByProps("getGuildCount").getGuild = function (e) {
             // eslint-disable-next-line prefer-const
-            let ret = getGuildDefault(e) || {
-                "id": "1081910402201423913",
-                "name": "syndicated's server",
-                "description": null,
-                "icon": null,
-                "splash": null,
-                "banner": null,
-                "homeHeader": null,
-                "features": [
-                    "PARTNERED",
-                    "VANITY_URL",
-                    "VIP_REGIONS",
-                    "INVITE_SPLASH",
-                    "BANNER",
-                    "ANIMATED_ICON",
-                    "USER_ID",
-                    "SUBSCRIBER_SINCE",
-                    "BOOSTING_SINCE"
-                ],
-                "preferredLocale": "en-US",
-                "ownerId": "112511479806246912",
-                "application_id": null,
-                "roles": {
-                    "1081910402201423913": {
-                        "id": "1081910402201423913",
-                        "name": "@everyone",
-                        "permissions": "1071698660929",
-                        "mentionable": false,
-                        "position": 0,
-                        "originalPosition": 0,
-                        "color": 0,
-                        "colorString": null,
-                        "hoist": false,
-                        "managed": false,
-                        "tags": {},
-                        "icon": null,
-                        "unicodeEmoji": null,
-                        "flags": 0
-                    }
-                },
-                "afkChannelId": null,
-                "afkTimeout": 300,
-                "systemChannelId": "1081910402201423916",
-                "joinedAt": "2023-03-05T12:05:40.818Z",
-                "verificationLevel": 0,
-                "explicitContentFilter": 0,
-                "defaultMessageNotifications": 0,
-                "mfaLevel": 0,
-                "vanityURLCode": null,
-                "premiumTier": 0,
-                "premiumSubscriberCount": 0,
-                "premiumProgressBarEnabled": false,
-                "systemChannelFlags": 0,
-                "discoverySplash": null,
-                "rulesChannelId": null,
-                "safetyAlertsChannelId": null,
-                "publicUpdatesChannelId": null,
-                "maxStageVideoChannelUsers": 50,
-                "maxVideoChannelUsers": 25,
-                "maxMembers": 500000,
-                "nsfwLevel": 0,
-                "applicationCommandCounts": {},
-                "hubType": null,
-                "latestOnboardingQuestionId": null,
-                getIconURL() { return ""; },
-                getIconSource() { return ""; },
-                hasFeature(feature) { return true; },
-                hasVerificationGate() { return false; },
-                isLurker() { return false; },
-                isNew() { return false; },
-                isOwner() { return true; },
-                isOwnerWithRequiredMfaLevel() { return true; },
-            };
+            let ret: Guild = getGuildDefault(e) || Vencord.Webpack.findByProps("getGuildCount").getGuild(Vencord.Webpack.findByProps("getLastSelectedGuildId").getLastSelectedGuildId());
 
             // eslint-disable-next-line prefer-const
             let features: string[] = [];
@@ -391,7 +315,7 @@ export default definePlugin({
             originalFeatures.forEach((feature: string) => { // eslint-disable-next-line prefer-const
                 let newFeature = feature.replace("_GUILD", "");
                 features.push(newFeature);
-            });
+            }); // @ts-ignore
 
             ret.features = new Set(features);
 
