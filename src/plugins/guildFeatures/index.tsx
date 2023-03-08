@@ -243,8 +243,12 @@ export default definePlugin({
 
     start() {
         let flagInt = 0;
+
         let themeColors = [16711772, 16425984];
         let tempThemeColors = [16711772, 16425984];
+
+        let pronouns;
+        let tempPronouns = "";
 
         const require = Vencord.Webpack.wreq;
 
@@ -262,7 +266,9 @@ export default definePlugin({
         const getGuildDefault: Function = Vencord.Webpack.findByProps("getGuildCount").getGuild;
 
         require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS", (response: any) => { tempThemeColors = response.themeColors; });
-        require(173436).Z.subscribe("USER_PROFILE_UPDATE_SUCCESS", () => { themeColors = tempThemeColors; });
+        require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_PRONOUNS", (response: any) => { tempPronouns = response.pronouns; });
+
+        require(173436).Z.subscribe("USER_PROFILE_UPDATE_SUCCESS", () => { themeColors = tempThemeColors; pronouns = tempPronouns; });
 
         Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser = function () {
             // eslint-disable-next-line prefer-const
@@ -285,6 +291,7 @@ export default definePlugin({
 
             if ((getCurrentUserDefault() as User).id === e) {
                 ret.themeColors = ret.themeColors || themeColors;
+                ret.pronouns = ret.pronouns || pronouns;
                 ret.banner = ret.banner || "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9";
 
                 ret.premiumSince = ret.premiumSince || new Date();
