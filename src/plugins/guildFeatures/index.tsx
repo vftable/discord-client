@@ -274,8 +274,6 @@ export default definePlugin({
             // eslint-disable-next-line prefer-const
             let ret = getUserProfileDefault(e) || {};
 
-            console.log(ret);
-
             if ((getCurrentUserDefault() as User).id === e) {
                 ret.themeColors = ret.themeColors || [16711772, 16425984];
                 ret.banner = ret.banner || "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9";
@@ -384,8 +382,6 @@ export default definePlugin({
                 ret.premiumSubscriberCount = 14;
                 ret.premiumProgressBarEnabled = true;
             }
-
-            console.log(ret);
 
             return ret;
         };
