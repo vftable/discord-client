@@ -243,6 +243,10 @@ export default definePlugin({
 
     start() {
         let flagInt = 0;
+        let themeColors = [16711772, 16425984];
+        let tempThemeColors = [16711772, 16425984];
+
+        const require = Vencord.Webpack.wreq;
 
         const flagNames = [...Object.keys(Vencord.Settings.plugins.GuildFeatures).filter((feature: string) => {
             return (feature !== "enabled") && (feature.includes("_USER")) && (Object.values(Vencord.Settings.plugins.GuildFeatures)[Object.keys(Vencord.Settings.plugins.GuildFeatures).indexOf(feature)]);
@@ -256,6 +260,9 @@ export default definePlugin({
         const getCurrentUserDefault: Function = Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser;
         const getUserProfileDefault: Function = Vencord.Webpack.findByProps("getUserProfile").getUserProfile;
         const getGuildDefault: Function = Vencord.Webpack.findByProps("getGuildCount").getGuild;
+
+        require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS", (response: any) => { tempThemeColors = response.themeColors; });
+        require(173436).Z.subscribe("USER_PROFILE_UPDATE_SUCCESS", () => { themeColors = tempThemeColors; });
 
         Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser = function () {
             // eslint-disable-next-line prefer-const
@@ -274,8 +281,10 @@ export default definePlugin({
             // eslint-disable-next-line prefer-const
             let ret = getUserProfileDefault(e) || {};
 
+            console.log(".1");
+
             if ((getCurrentUserDefault() as User).id === e) {
-                ret.themeColors = ret.themeColors || [16711772, 16425984];
+                ret.themeColors = ret.themeColors || themeColors;
                 ret.banner = ret.banner || "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9";
 
                 ret.premiumSince = ret.premiumSince || new Date();
@@ -283,6 +292,8 @@ export default definePlugin({
 
                 ret.premiumType = 2;
             }
+
+            console.log(ret);
 
             return ret;
         };
