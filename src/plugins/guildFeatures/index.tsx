@@ -265,6 +265,8 @@ export default definePlugin({
         const getUserProfileDefault: Function = Vencord.Webpack.findByProps("getUserProfile").getUserProfile;
         const getGuildDefault: Function = Vencord.Webpack.findByProps("getGuildCount").getGuild;
 
+        const lastSelectedGuild: Guild = Vencord.Webpack.findByProps("getGuildCount").getGuild(Vencord.Webpack.findByProps("getLastSelectedGuildId").getLastSelectedGuildId());
+
         require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS", (response: any) => { tempThemeColors = response.themeColors; });
         require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_PRONOUNS", (response: any) => { tempPronouns = response.pronouns; });
 
@@ -303,7 +305,7 @@ export default definePlugin({
 
         Vencord.Webpack.findByProps("getGuildCount").getGuild = function (e) {
             // eslint-disable-next-line prefer-const
-            let ret: Guild = getGuildDefault(e) || Vencord.Webpack.findByProps("getGuildCount").getGuild(Vencord.Webpack.findByProps("getLastSelectedGuildId").getLastSelectedGuildId());
+            let ret: Guild = getGuildDefault(e) || lastSelectedGuild;
 
             // eslint-disable-next-line prefer-const
             let features: string[] = [];
