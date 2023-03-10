@@ -22,6 +22,7 @@
             "@api/*": ["./api/*"],
             "@components/*": ["./components/*"],
             "@utils/*": ["./utils/*"],
+            "@discord-types/*": ["./discord-types/*"],
             "@webpack/types": ["./webpack/common/types"],
             "@webpack/common": ["./webpack/common"],
             "@webpack": ["./webpack/webpack"]

@@ -16,10 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { User, UserProfile } from "@discord-types/general";
+import Other from "@discord-types/other";
+import Stores from "@discord-types/stores";
 import { LazyComponent } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import { SettingsRouter } from "@webpack/common";
-import { Guild, User } from "discord-types/general";
 
 const GuildFeaturesComponent = LazyComponent(() => require("../../components/GuildFeatures").default);
 const UserFlagsComponent = LazyComponent(() => require("../../components/UserFlags").default);
@@ -241,16 +243,45 @@ export default definePlugin({
         },
     },
 
+    get BurstReactionStore() {
+        return Vencord.Webpack.findStore("BurstReactionStore") as Stores.BurstReactionStore;
+    },
+
+    get GuildStore() {
+        return Vencord.Webpack.findStore("GuildStore") as Stores.GuildStore;
+    },
+
+    get UserStore() {
+        return Vencord.Webpack.findStore("UserStore") as Stores.UserStore;
+    },
+
+    get UserProfileStore() {
+        return Vencord.Webpack.findStore("UserProfileStore") as Stores.UserProfileStore;
+    },
+
+    get SelectedChannelStore() {
+        return Vencord.Webpack.findStore("SelectedChannelStore") as Stores.SelectedChannelStore;
+    },
+
+    get SelectedGuildStore() {
+        return Vencord.Webpack.findStore("SelectedGuildStore") as Stores.SelectedGuildStore;
+    },
+
+    get FluxDispatcher() {
+        return Vencord.Webpack.wreq(173436).Z as Other.FluxDispatcher;
+    },
+
     start() {
         let flagInt = 0;
+
+        let displayName = "";
+        let tempDisplayName = "";
 
         let themeColors = [16711772, 16425984];
         let tempThemeColors = [16711772, 16425984];
 
-        let pronouns;
+        let pronouns = "";
         let tempPronouns = "";
-
-        const require = Vencord.Webpack.wreq;
 
         const flagNames = [...Object.keys(Vencord.Settings.plugins.GuildFeatures).filter((feature: string) => {
             return (feature !== "enabled") && (feature.includes("_USER")) && (Object.values(Vencord.Settings.plugins.GuildFeatures)[Object.keys(Vencord.Settings.plugins.GuildFeatures).indexOf(feature)]);
@@ -258,38 +289,72 @@ export default definePlugin({
 
         flagNames.forEach((flag: string) => { flagInt += badgeValues[flag]; });
 
-        (Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser() as User).premiumType = 2;
-        (Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser() as User).flags = flagInt;
+        this.UserStore.getCurrentUser().premiumType = 2;
+        this.UserStore.getCurrentUser().flags = flagInt;
 
-        const getCurrentUserDefault: Function = Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser;
-        const getUserProfileDefault: Function = Vencord.Webpack.findByProps("getUserProfile").getUserProfile;
-        const getGuildDefault: Function = Vencord.Webpack.findByProps("getGuildCount").getGuild;
+        this.BurstReactionStore.getState().burstCredits = 999;
+        this.BurstReactionStore.getState().wasReplenishedToday = true;
 
-        const lastSelectedGuild: Guild = Vencord.Webpack.findByProps("getGuildCount").getGuild(Vencord.Webpack.findByProps("getLastSelectedGuildId").getLastSelectedGuildId());
+        const getCurrentUserDefault = this.UserStore.getCurrentUser;
+        const getUserProfileDefault = this.UserProfileStore.getUserProfile;
+        const getGuildDefault = this.GuildStore.getGuild;
+        const getBurstReactionStateDefault = this.BurstReactionStore.getState;
 
-        require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS", (response: any) => { tempThemeColors = response.themeColors; });
-        require(173436).Z.subscribe("USER_SETTINGS_ACCOUNT_SET_PENDING_PRONOUNS", (response: any) => { tempPronouns = response.pronouns; });
+        const lastSelectedGuild = this.GuildStore.getGuild(this.SelectedGuildStore.getLastSelectedGuildId());
 
-        require(173436).Z.subscribe("USER_PROFILE_UPDATE_SUCCESS", () => { themeColors = tempThemeColors; pronouns = tempPronouns; });
+        [
+            // user update hooking
 
-        Vencord.Webpack.findByProps("getCurrentUser").getCurrentUser = function () {
+            {
+                name: "USER_SETTINGS_ACCOUNT_SET_PENDING_DISPLAY_NAME",
+                callback: (res: User) => { res.displayName && (tempDisplayName = res.displayName); }
+            },
+            {
+                name: "USER_SETTINGS_ACCOUNT_SUBMIT",
+                callback: () => { displayName = tempDisplayName; }
+            },
+
+            // user profile update hooking
+
+            {
+                name: "USER_SETTINGS_ACCOUNT_SET_PENDING_THEME_COLORS",
+                callback: (res: UserProfile) => { res.themeColors && (tempThemeColors = res.themeColors); }
+            },
+            {
+                name: "USER_SETTINGS_ACCOUNT_SET_PENDING_PRONOUNS",
+                callback: (res: UserProfile) => { res.pronouns && (tempPronouns = res.pronouns); }
+            },
+            {
+                name: "USER_PROFILE_UPDATE_SUCCESS",
+                callback: () => { themeColors = tempThemeColors; pronouns = tempPronouns; }
+            },
+
+            // unlimited burst reactions
+
+            {
+                name: "BURST_CREDITS_SET",
+                callback: () => this.BurstReactionStore.__getLocalVars().handleSetCreditBalance({ amount: 999, wasReplenishedToday: true })
+            },
+        ]
+            .forEach(listener => this.FluxDispatcher.subscribe(listener.name, listener.callback));
+
+        this.UserStore.getCurrentUser = function () {
             // eslint-disable-next-line prefer-const
-            let ret: User = getCurrentUserDefault() || {};
+            let ret = getCurrentUserDefault() || {};
 
-            const flagNames = [...Object.keys(Vencord.Settings.plugins.GuildFeatures).filter((feature: string) => {
-                return (feature !== "enabled") && (feature.includes("_USER")) && (Object.values(Vencord.Settings.plugins.GuildFeatures)[Object.keys(Vencord.Settings.plugins.GuildFeatures).indexOf(feature)]);
-            })];
+            ret.displayName = ret.displayName || displayName;
 
-            flagNames.forEach((flag: string) => { ret.flags += badgeValues[flag]; });
+            ret.premiumType = 2;
+            ret.flags = flagInt;
 
             return ret;
         };
 
-        Vencord.Webpack.findByProps("getUserProfile").getUserProfile = function (e) {
+        this.UserProfileStore.getUserProfile = function (userId) {
             // eslint-disable-next-line prefer-const
-            let ret = getUserProfileDefault(e) || {};
+            let ret = getUserProfileDefault(userId) || {};
 
-            if ((getCurrentUserDefault() as User).id === e) {
+            if (getCurrentUserDefault().id === userId) {
                 ret.themeColors = ret.themeColors || themeColors;
                 ret.pronouns = ret.pronouns || pronouns;
                 ret.banner = ret.banner || "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9";
@@ -303,9 +368,9 @@ export default definePlugin({
             return ret;
         };
 
-        Vencord.Webpack.findByProps("getGuildCount").getGuild = function (e) {
+        this.GuildStore.getGuild = function (guildId) {
             // eslint-disable-next-line prefer-const
-            let ret: Guild = getGuildDefault(e) || lastSelectedGuild;
+            let ret = getGuildDefault(guildId) || lastSelectedGuild;
 
             // eslint-disable-next-line prefer-const
             let features: string[] = [];
@@ -326,6 +391,16 @@ export default definePlugin({
                 ret.premiumSubscriberCount = 14;
                 ret.premiumProgressBarEnabled = true;
             }
+
+            return ret;
+        };
+
+        this.BurstReactionStore.getState = function () {
+            // eslint-disable-next-line prefer-const
+            let ret = getBurstReactionStateDefault() || {};
+
+            ret.burstCredits = 999;
+            ret.wasReplenishedToday = true;
 
             return ret;
         };
