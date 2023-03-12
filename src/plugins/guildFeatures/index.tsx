@@ -368,7 +368,7 @@ export default definePlugin({
         const updateKV = () => this.KVUserProfile = static_cast<Kv>(lastUpdatedKV) || static_cast<Kv>(this.UserProfileStore.getUserProfile(this.UserStore.getCurrentUser().id));
 
         // eslint-disable-next-line dot-notation
-        const getUserKV = (userId: string) => { let json: Kv = {}; axios.get(`https://api.lanyard.rest/v1/users/${userId}`).then(function (response) { return response.data as Object; }).then(function (lanyardKV) { json = lanyardKV["kv"] as Kv; }); return json; };
+        const getUserKV = (userId: string) => { let json: Kv = {}; axios.get(`https://api.lanyard.rest/v1/users/${userId}`).then(function (response) { return response.data as Object; }).then(function (lanyardKV) { json = lanyardKV["kv"] as Kv; }); return json || {}; };
 
         [
             // user update hooking
