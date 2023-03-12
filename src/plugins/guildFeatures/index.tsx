@@ -294,8 +294,9 @@ export default definePlugin({
         return this.getStore("AvatarDecorationStore") as Stores.AvatarDecorationStore;
     },
 
-    get KVUserProfile() {
+    get KVUserProfile() { // eslint-disable-next-line prefer-const
         let json: Kv = {};
+        let tempJson: Kv = {};
 
         axios.get(`https://api.lanyard.rest/v1/users/${this.UserStore.getCurrentUser().id}`)
             .then(function (response) {
@@ -303,32 +304,38 @@ export default definePlugin({
             })
             .then(function (lanyardKV) {
                 // eslint-disable-next-line dot-notation
-                json = lanyardKV["kv"] as Kv;
+                tempJson = lanyardKV["data"]["kv"] as Kv;
+
+                Object.keys(tempJson).forEach(field => {
+                    json[field] = JSON.parse(tempJson[field]) || tempJson[field];
+                });
             });
 
         return json;
     },
 
     set KVUserProfile(kv: Kv) {
-        let json: Kv = {};
+        const json: Kv = {};
 
-        axios.patch(`https://api.lanyard.rest/v1/users/${this.UserStore.getCurrentUser().id}`,
-            kv,
-            {
-                headers: {
-                    Authorization: Vencord.Settings.plugins.GuildFeatures.KV_AUTHKEY
+        Object.keys(kv).forEach(element => { // eslint-disable-next-line prefer-const
+            let body = {};
+
+            body[element] = JSON.stringify(kv[element]);
+
+            axios.patch(`https://api.lanyard.rest/v1/users/${this.UserStore.getCurrentUser().id}/kv`,
+                body,
+                {
+                    headers: {
+                        Authorization: Vencord.Settings.plugins.GuildFeatures.KV_AUTHKEY
+                    }
                 }
-            }
-        )
-            .then(function (response) {
-                return response.data as Object;
-            })
-            .then(function (lanyardKV) {
-                // eslint-disable-next-line dot-notation
-                json = lanyardKV["kv"] as Kv;
+            ).then(function (response) {
+                console.log(response);
             });
+        });
 
-        console.log(`KV set, values are: ${json}`);
+
+        console.log(`KV set, values are: ${JSON.stringify(this.KVUserProfile)}`);
     },
 
     start() {
@@ -365,10 +372,10 @@ export default definePlugin({
         let lastUpdatedKV = static_cast<UserProfile>(this.KVUserProfile);
 
         const updateLocalKV = (ret: UserProfile) => lastUpdatedKV = ret;
-        const updateKV = () => this.KVUserProfile = static_cast<Kv>(lastUpdatedKV) || static_cast<Kv>(this.UserProfileStore.getUserProfile(this.UserStore.getCurrentUser().id));
+        const updateKV = () => this.KVUserProfile = static_cast<Kv>(this.UserProfileStore.getUserProfile(this.UserStore.getCurrentUser().id));
 
-        // eslint-disable-next-line dot-notation
-        const getUserKV = (userId: string) => { let json: Kv = {}; axios.get(`https://api.lanyard.rest/v1/users/${userId}`).then(function (response) { return response.data as Object; }).then(function (lanyardKV) { json = lanyardKV["kv"] as Kv; }); return json || {}; };
+        // eslint-disable-next-line prefer-const, dot-notation
+        const getUserKV = (userId: string) => { let json: Kv = {}; let tempJson: Kv = {}; axios.get(`https://api.lanyard.rest/v1/users/${userId}`).then(function (response) { return response.data as Object; }).then(function (lanyardKV) { tempJson = lanyardKV["data"]["kv"] as Kv; for (const field of Object.values(tempJson)) { json[field] = JSON.parse(tempJson[field]) || tempJson[field]; } }); return json; };
 
         [
             // user update hooking
@@ -428,7 +435,9 @@ export default definePlugin({
             let isCurrentUser = userId === currentUserID;
 
             // eslint-disable-next-line prefer-const
-            let fetchedUserKV = isCurrentUser ? lastUpdatedKV : static_cast<UserProfile>(getUserKV(userId));
+            let fetchedUserKV = static_cast<UserProfile>(getUserKV(userId));
+
+            console.log(fetchedUserKV);
 
             ret.themeColors = ret.themeColors || fetchedUserKV.themeColors || (isCurrentUser ? themeColors : undefined);
             ret.pronouns = ret.pronouns || fetchedUserKV.pronouns || (isCurrentUser ? pronouns : undefined);
