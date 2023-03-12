@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+export { default as AvatarDecorationStore } from "./AvatarDecorationStore";
 export { default as BurstReactionStore } from "./BurstReactionStore";
 export { default as ChannelStore } from "./ChannelStore";
 export { default as GuildMemberStore } from "./GuildMemberStore";

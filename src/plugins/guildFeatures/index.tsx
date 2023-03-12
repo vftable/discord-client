@@ -22,9 +22,18 @@ import Stores from "@discord-types/stores";
 import { LazyComponent } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import { SettingsRouter } from "@webpack/common";
+import axios from "axios";
 
 const GuildFeaturesComponent = LazyComponent(() => require("../../components/GuildFeatures").default);
 const UserFlagsComponent = LazyComponent(() => require("../../components/UserFlags").default);
+
+interface Kv {
+    [key: string]: string;
+}
+
+function static_cast<T>(target: any) {
+    return target as unknown as T;
+}
 
 const badgeValues = {
     DISCORD_EMPLOYEE_USER: 1 << 0,
@@ -121,6 +130,11 @@ export default definePlugin({
     },
 
     options: {
+        KV_AUTHKEY: {
+            type: OptionType.STRING,
+            description: "Lanyard KV Authkey",
+            restartNeeded: true
+        },
         PARTNERED_GUILD: {
             type: OptionType.BOOLEAN,
             description: "PARTNERED",
@@ -243,32 +257,78 @@ export default definePlugin({
         },
     },
 
-    get BurstReactionStore() {
-        return Vencord.Webpack.findStore("BurstReactionStore") as Stores.BurstReactionStore;
-    },
-
-    get GuildStore() {
-        return Vencord.Webpack.findStore("GuildStore") as Stores.GuildStore;
-    },
-
-    get UserStore() {
-        return Vencord.Webpack.findStore("UserStore") as Stores.UserStore;
-    },
-
-    get UserProfileStore() {
-        return Vencord.Webpack.findStore("UserProfileStore") as Stores.UserProfileStore;
-    },
-
-    get SelectedChannelStore() {
-        return Vencord.Webpack.findStore("SelectedChannelStore") as Stores.SelectedChannelStore;
-    },
-
-    get SelectedGuildStore() {
-        return Vencord.Webpack.findStore("SelectedGuildStore") as Stores.SelectedGuildStore;
+    getStore(storeName: string) {
+        return Vencord.Webpack.wreq(363010).yh.getAll().filter(n => n.constructor.displayName === storeName)[0];
     },
 
     get FluxDispatcher() {
         return Vencord.Webpack.wreq(173436).Z as Other.FluxDispatcher;
+    },
+
+    get BurstReactionStore() {
+        return this.getStore("BurstReactionStore") as Stores.BurstReactionStore;
+    },
+
+    get GuildStore() {
+        return this.getStore("GuildStore") as Stores.GuildStore;
+    },
+
+    get UserStore() {
+        return this.getStore("UserStore") as Stores.UserStore;
+    },
+
+    get UserProfileStore() {
+        return this.getStore("UserProfileStore") as Stores.UserProfileStore;
+    },
+
+    get SelectedChannelStore() {
+        return this.getStore("SelectedChannelStore") as Stores.SelectedChannelStore;
+    },
+
+    get SelectedGuildStore() {
+        return this.getStore("SelectedGuildStore") as Stores.SelectedGuildStore;
+    },
+
+    get AvatarDecorationsStore() {
+        this.FluxDispatcher.dispatch({ type: "USER_AVATAR_DECORATIONS_FETCH" });
+        return this.getStore("AvatarDecorationStore") as Stores.AvatarDecorationStore;
+    },
+
+    get KVUserProfile() {
+        let json: Kv = {};
+
+        axios.get(`https://api.lanyard.rest/v1/users/${this.UserStore.getCurrentUser().id}`)
+            .then(function (response) {
+                return response.data as Object;
+            })
+            .then(function (lanyardKV) {
+                // eslint-disable-next-line dot-notation
+                json = lanyardKV["kv"] as Kv;
+            });
+
+        return json;
+    },
+
+    set KVUserProfile(kv: Kv) {
+        let json: Kv = {};
+
+        axios.patch(`https://api.lanyard.rest/v1/users/${this.UserStore.getCurrentUser().id}`,
+            kv,
+            {
+                headers: {
+                    Authorization: Vencord.Settings.plugins.GuildFeatures.KV_AUTHKEY
+                }
+            }
+        )
+            .then(function (response) {
+                return response.data as Object;
+            })
+            .then(function (lanyardKV) {
+                // eslint-disable-next-line dot-notation
+                json = lanyardKV["kv"] as Kv;
+            });
+
+        console.log(`KV set, values are: ${json}`);
     },
 
     start() {
@@ -302,6 +362,14 @@ export default definePlugin({
 
         const lastSelectedGuild = this.GuildStore.getGuild(this.SelectedGuildStore.getLastSelectedGuildId());
 
+        let lastUpdatedKV = static_cast<UserProfile>(this.KVUserProfile);
+
+        const updateLocalKV = (ret: UserProfile) => lastUpdatedKV = ret;
+        const updateKV = () => this.KVUserProfile = static_cast<Kv>(lastUpdatedKV) || static_cast<Kv>(this.UserProfileStore.getUserProfile(this.UserStore.getCurrentUser().id));
+
+        // eslint-disable-next-line dot-notation
+        const getUserKV = (userId: string) => { let json: Kv = {}; axios.get(`https://api.lanyard.rest/v1/users/${userId}`).then(function (response) { return response.data as Object; }).then(function (lanyardKV) { json = lanyardKV["kv"] as Kv; }); return json; };
+
         [
             // user update hooking
 
@@ -326,7 +394,7 @@ export default definePlugin({
             },
             {
                 name: "USER_PROFILE_UPDATE_SUCCESS",
-                callback: () => { themeColors = tempThemeColors; pronouns = tempPronouns; }
+                callback: () => { themeColors = tempThemeColors; pronouns = tempPronouns; updateKV(); }
             },
 
             // unlimited burst reactions
@@ -338,11 +406,14 @@ export default definePlugin({
         ]
             .forEach(listener => this.FluxDispatcher.subscribe(listener.name, listener.callback));
 
+        // store function overrides
+
         this.UserStore.getCurrentUser = function () {
             // eslint-disable-next-line prefer-const
             let ret = getCurrentUserDefault() || {};
 
             ret.displayName = ret.displayName || displayName;
+            ret.avatarDecoration = ret.avatarDecoration || "../../../attachments/1084150600301805710/1084150731940036668/gjSxPi1";
 
             ret.premiumType = 2;
             ret.flags = flagInt;
@@ -352,17 +423,24 @@ export default definePlugin({
 
         this.UserProfileStore.getUserProfile = function (userId) {
             // eslint-disable-next-line prefer-const
-            let ret = getUserProfileDefault(userId) || {};
+            let ret = getUserProfileDefault(userId) || {}; // eslint-disable-next-line prefer-const
+            let currentUserID = getCurrentUserDefault().id; // eslint-disable-next-line prefer-const
+            let isCurrentUser = userId === currentUserID;
 
-            if (getCurrentUserDefault().id === userId) {
-                ret.themeColors = ret.themeColors || themeColors;
-                ret.pronouns = ret.pronouns || pronouns;
-                ret.banner = ret.banner || "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9";
+            // eslint-disable-next-line prefer-const
+            let fetchedUserKV = isCurrentUser ? lastUpdatedKV : static_cast<UserProfile>(getUserKV(userId));
 
-                ret.premiumSince = ret.premiumSince || new Date();
-                ret.premiumGuildSince = ret.premiumGuildSince || new Date();
+            ret.themeColors = ret.themeColors || fetchedUserKV.themeColors || (isCurrentUser ? themeColors : undefined);
+            ret.pronouns = ret.pronouns || fetchedUserKV.pronouns || (isCurrentUser ? pronouns : undefined);
+            ret.banner = ret.banner || fetchedUserKV.banner || (isCurrentUser ? "../../../attachments/1075113930915065857/1082936255836332062/OsSAdk9" : undefined);
 
-                ret.premiumType = 2;
+            ret.premiumSince = ret.premiumSince || fetchedUserKV.premiumSince || (isCurrentUser ? new Date() : undefined);
+            ret.premiumGuildSince = ret.premiumGuildSince || fetchedUserKV.premiumGuildSince || (isCurrentUser ? new Date() : undefined);
+
+            ret.premiumType = 2;
+
+            if (isCurrentUser) {
+                updateLocalKV(ret);
             }
 
             return ret;
@@ -384,7 +462,7 @@ export default definePlugin({
                 features.push(newFeature);
             }); // @ts-ignore
 
-            ret.features = new Set(features);
+            ret.features = new Set([...ret.features, ...features]);
 
             if (Vencord.Settings.plugins.GuildFeatures.PREMIUM_TIER_3_OVERRIDE_GUILD) {
                 ret.premiumTier = 3;
@@ -404,6 +482,10 @@ export default definePlugin({
 
             return ret;
         };
+
+        // end store function overrides
+
+        updateKV();
     },
     stop() { },
 });

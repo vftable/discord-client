@@ -20,6 +20,7 @@ export default class User {
     constructor(user: object);
     accentColor: number;
     avatar: string;
+    avatarDecoration: string | undefined;
     banner: string;
     bio: string;
     bot: boolean;
